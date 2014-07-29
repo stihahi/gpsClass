@@ -92,6 +92,9 @@ void gpsClass::parser(float &latitude,float &longitude,char *readData){
         Serial.print(readData[k]);
     }
 }
+void gpsClass::RMCParser(char *readData,RMCData &rmc){
+    
+}
 
 void gpsClass::send_pmtk_packet(char *p)
 {

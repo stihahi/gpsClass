@@ -11,6 +11,16 @@
 
 #include <SoftwareSerial.h>
 
+struct RMCData{
+    char hour,min,sec;
+    bool status;
+    float latitude;
+    float longitude;
+    float knot;
+    int heading;
+    int date;
+};
+
 class gpsClass : public SoftwareSerial{
     int reloadSec;
     void auto_detect_baud_rate(void);
@@ -24,5 +34,8 @@ public:
     char* gpsFetch(void);
     void parser(float &latitude,float &longitude,char *readData);
 };
+
+
+
 
 #endif /* defined(____gpsClass__) */
