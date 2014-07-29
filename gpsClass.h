@@ -10,15 +10,17 @@
 #define ____gpsClass__
 
 #include <SoftwareSerial.h>
+#define CTOI(A) (A-'0')
+
 
 struct RMCData{
     char hour,min,sec;
+    char day,month,year;
     bool status;
     float latitude;
     float longitude;
     float knot;
     int heading;
-    int date;
 };
 
 class gpsClass : public SoftwareSerial{
@@ -33,6 +35,7 @@ public:
     void readData(void);
     char* gpsFetch(void);
     void parser(float &latitude,float &longitude,char *readData);
+    void RMCParser(char *readData,RMCData &rmc);
 };
 
 

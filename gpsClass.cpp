@@ -46,7 +46,7 @@ void gpsClass::serialSetup(void){
     char sendPack[256];
     sprintf(sendPack,"PMTK220,%d",reloadSec * 1000);//秒数
     send_pmtk_packet(sendPack);
-    send_pmtk_packet("PMTK314,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0");
+    send_pmtk_packet("PMTK314,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0");
     send_pmtk_packet("PMTK251,9600");
     auto_detect_baud_rate();
 }
@@ -91,9 +91,55 @@ void gpsClass::parser(float &latitude,float &longitude,char *readData){
     for (int k=0; k<length; k++) {
         Serial.print(readData[k]);
     }
+    if (length != 0) {
+        RMCData rmcD;
+        RMCParser(readData,rmcD);
+        Serial.print("Time:");
+        Serial.print(rmcD.hour,DEC);
+        Serial.print(":");
+        Serial.print(rmcD.min,DEC);
+        Serial.print(":");
+        Serial.println(rmcD.sec,DEC);
+    }
 }
+
+
 void gpsClass::RMCParser(char *readData,RMCData &rmc){
-    
+    char *c = readData;
+    char nowPhrase[50];
+    int index = 0;
+    int dataNum = 0;
+    while (*c != 0) {
+        if (*c != ',') {
+            nowPhrase[index++] = *c;
+        }else{
+            nowPhrase[index++] = 0;
+            Serial.print("dataNum:");Serial.print(dataNum);
+            Serial.print("[");Serial.print(nowPhrase);Serial.println("]");
+            switch (dataNum) {
+                case 1://225446.00	＝　測位時刻（UTC）　22:54:46.00
+                    rmc.hour = CTOI(nowPhrase[0])*10 + CTOI(nowPhrase[1]);
+                    rmc.min = CTOI(nowPhrase[2])*10 + CTOI(nowPhrase[3]);
+                    rmc.sec = CTOI(nowPhrase[4])*10 + CTOI(nowPhrase[5]);
+                    break;
+                case 2://A	＝　ステータス；A = 有効，V = 無効
+                    if (nowPhrase[0] == 'A') {
+                        rmc.status = true;
+                    }else{
+                        rmc.status = false;
+                    }
+                    break;
+                case 3://4916.452653,N	＝　緯度　49度16.452653分（北緯）
+                    rmc.latitude = atof(nowPhrase);
+                    break;
+                default:
+                    break;
+            }
+            dataNum ++;
+            index = 0;
+        }
+        c++;
+    }
 }
 
 void gpsClass::send_pmtk_packet(char *p)
