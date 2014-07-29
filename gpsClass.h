@@ -1,6 +1,6 @@
 //
 //  gpsClass.h
-//  
+//
 //
 //  Created by 岩井聡 on 2014/07/28.
 //
@@ -21,6 +21,7 @@ struct RMCData{
     float longitude;
     float knot;
     int heading;
+    char* show(void);
 };
 
 class gpsClass : public SoftwareSerial{

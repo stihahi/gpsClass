@@ -94,12 +94,7 @@ void gpsClass::parser(float &latitude,float &longitude,char *readData){
     if (length != 0) {
         RMCData rmcD;
         RMCParser(readData,rmcD);
-        Serial.print("Time:");
-        Serial.print(rmcD.hour,DEC);
-        Serial.print(":");
-        Serial.print(rmcD.min,DEC);
-        Serial.print(":");
-        Serial.println(rmcD.sec,DEC);
+//        Serial.println(rmcD.show());
     }
 }
 
@@ -114,8 +109,8 @@ void gpsClass::RMCParser(char *readData,RMCData &rmc){
             nowPhrase[index++] = *c;
         }else{
             nowPhrase[index++] = 0;
-            Serial.print("dataNum:");Serial.print(dataNum);
-            Serial.print("[");Serial.print(nowPhrase);Serial.println("]");
+/*            Serial.print("dataNum:");Serial.print(dataNum);
+            Serial.print("[");Serial.print(nowPhrase);Serial.println("]");*/
             switch (dataNum) {
                 case 1://225446.00	＝　測位時刻（UTC）　22:54:46.00
                     rmc.hour = CTOI(nowPhrase[0])*10 + CTOI(nowPhrase[1]);
@@ -131,6 +126,26 @@ void gpsClass::RMCParser(char *readData,RMCData &rmc){
                     break;
                 case 3://4916.452653,N	＝　緯度　49度16.452653分（北緯）
                     rmc.latitude = atof(nowPhrase);
+                    break;
+                case 4:
+                    if (nowPhrase[0] == 'S') {
+                        rmc.latitude = -rmc.latitude;
+                    }
+                    break;
+                case 5://12311.123747,W	＝　経度　123度11.123747分（西経）
+                    rmc.longitude = atof(nowPhrase);
+                    Serial.println(rmc.longitude);
+                    break;
+                case 6:
+                    if (nowPhrase[0] == 'W') {
+                        rmc.longitude = -rmc.longitude;
+                    }
+                    break;
+                case 7://000.5	＝　対地速度（ノット）　0.5ノット
+                    rmc.knot = atof(nowPhrase);
+                    break;
+                case 8://054.7	＝　進行方向（度，真北）　54.7度
+                    rmc.heading = atoi(nowPhrase);
                     break;
                 default:
                     break;
@@ -159,4 +174,16 @@ void gpsClass::send_pmtk_packet(char *p)
     while(1);
     print('*');
     println(checksum,HEX);
+}
+
+
+char* RMCData::show(void){
+    char ret[256];
+    char NS;
+    char WE;
+    char temp1[12],temp2[12],temp3[12];
+    if (latitude >0) {NS = 'N';}else{NS='S';}
+    if (longitude > 0){WE = 'E';}else{WE='W';}
+    sprintf(ret,"%d:%d:%d status:%d %c%s %c%s speed:%s heading:%d",hour,min,sec,status,NS,dtostrf(latitude,9,4,temp1),WE,dtostrf(longitude,10,4,temp2),dtostrf(knot,7,4,temp3),heading);
+    return ret;
 }
