@@ -32,7 +32,7 @@ void gpsClass::auto_detect_baud_rate(void){
         while(r < 20);
         if(p > 15){
             Serial.print(bauds[i]);
-            Serial.println(" ok");
+            Serial.println("ok");
             return;
         }
         delay(100);
@@ -47,7 +47,8 @@ void gpsClass::serialSetup(void){
     char sendPack[256];
     sprintf(sendPack,"PMTK220,%d",reloadSec * 1000);//秒数
     send_pmtk_packet(sendPack);
-    send_pmtk_packet("PMTK314,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0");
+    //////////////////////////l,r,v,g,s,v,r,t,0,0,0,0,0,0,0,0,0,z,0
+    send_pmtk_packet("PMTK314,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0");
     send_pmtk_packet("PMTK251,9600");
     auto_detect_baud_rate();
 }
@@ -103,8 +104,8 @@ bool gpsClass::parser(char *readData){
     return false;
 }
 
-int gpsClass::headerParser(char *readData){
-    char *c = readData;
+int gpsClass::headerParser(char *rawData){
+    char *c = rawData;
     char headPhrase[10];
     int index = 0;
     while (*c != ',') {
@@ -122,67 +123,73 @@ int gpsClass::headerParser(char *readData){
     return NMEA_OTHER;
 }
 
+char* gpsClass::readNextData(char *rawData){
+    char retPhrase[20];
+    int index = 0;
+    while(*rawData != ',' && *rawData != 0){
+        retPhrase[index++] = *rawData++;
+    }
+    retPhrase[index] = 0;
+    return retPhrase;
+}
+
 
 void gpsClass::RMCParser(char *readData,RMCData &rmc){
     char *c = readData;
-    char nowPhrase[50];
+    char *nowPhrase;
     int index = 0;
     int dataNum = 0;
-    while (*c != 0) {
-        if (*c != ',') {
-            nowPhrase[index++] = *c;
-        }else{
-            nowPhrase[index++] = 0;
-/*            Serial.print("dataNum:");Serial.print(dataNum);
-            Serial.print("[");Serial.print(nowPhrase);Serial.println("]");*/
-            switch (dataNum) {
-                case 0:
-                    if (strcmp(nowPhrase,"GPRMC") != 0) {
-                        return;//データの種類が違う~!
-                    }
-                    break;
-                case 1://225446.00	＝　測位時刻（UTC）　22:54:46.00
-                    rmc.hour = CTOI(nowPhrase[0])*10 + CTOI(nowPhrase[1]);
-                    rmc.min = CTOI(nowPhrase[2])*10 + CTOI(nowPhrase[3]);
-                    rmc.sec = CTOI(nowPhrase[4])*10 + CTOI(nowPhrase[5]);
-                    break;
-                case 2://A	＝　ステータス；A = 有効，V = 無効
-                    if (nowPhrase[0] == 'A') {
-                        rmc.status = true;
-                    }else{
-                        rmc.status = false;
-                    }
-                    break;
-                case 3://4916.452653,N	＝　緯度　49度16.452653分（北緯）
-                    rmc.latitude = atof(nowPhrase);
-                    break;
-                case 4:
-                    if (nowPhrase[0] == 'S') {
-                        rmc.latitude = -rmc.latitude;
-                    }
-                    break;
-                case 5://12311.123747,W	＝　経度　123度11.123747分（西経）
-                    rmc.longitude = atof(nowPhrase);
-                    break;
-                case 6:
-                    if (nowPhrase[0] == 'W') {
-                        rmc.longitude = -rmc.longitude;
-                    }
-                    break;
-                case 7://000.5	＝　対地速度（ノット）　0.5ノット
-                    rmc.knot = atof(nowPhrase);
-                    break;
-                case 8://054.7	＝　進行方向（度，真北）　54.7度
-                    rmc.heading = atoi(nowPhrase);
-                    break;
-                default:
-                    break;
-            }
-            dataNum ++;
-            index = 0;
+    do{
+        nowPhrase = readNextData(readData);
+/*        Serial.print("dataNum:");Serial.print(dataNum);
+        Serial.print("[");Serial.print(nowPhrase);Serial.println("]");*/
+        switch (dataNum) {
+            case 0:
+                if (strcmp(nowPhrase,"GPRMC") != 0) {
+                    return;//データの種類が違う~!
+                }
+                break;
+            case 1://225446.00	＝　測位時刻（UTC）　22:54:46.00
+                rmc.hour = CTOI(nowPhrase[0])*10 + CTOI(nowPhrase[1]);
+                rmc.min = CTOI(nowPhrase[2])*10 + CTOI(nowPhrase[3]);
+                rmc.sec = CTOI(nowPhrase[4])*10 + CTOI(nowPhrase[5]);
+                break;
+            case 2://A	＝　ステータス；A = 有効，V = 無効
+                if (nowPhrase[0] == 'A') {
+                    rmc.status = true;
+                }else{
+                    rmc.status = false;
+                }
+                break;
+            case 3://4916.452653,N	＝　緯度　49度16.452653分（北緯）
+                rmc.latitude = atof(nowPhrase);
+                break;
+            case 4:
+                if (nowPhrase[0] == 'S') {
+                    rmc.latitude = -rmc.latitude;
+                }
+                break;
+            case 5://12311.123747,W	＝　経度　123度11.123747分（西経）
+                rmc.longitude = atof(nowPhrase);
+                break;
+            case 6:
+                if (nowPhrase[0] == 'W') {
+                    rmc.longitude = -rmc.longitude;
+                }
+                break;
+            case 7://000.5	＝　対地速度（ノット）　0.5ノット
+                rmc.knot = atof(nowPhrase);
+                break;
+            case 8://054.7	＝　進行方向（度，真北）　54.7度
+                rmc.heading = atoi(nowPhrase);
+                break;
+            default:
+                break;
         }
-        c++;
-    }
+        dataNum ++;
+        readData += strlen(nowPhrase)+1;
+    }while (strlen(nowPhrase) != 0);
+    
 }
 
 void gpsClass::send_pmtk_packet(char *p)
