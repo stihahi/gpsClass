@@ -48,7 +48,7 @@ void gpsClass::serialSetup(void){
     sprintf(sendPack,"PMTK220,%d",reloadSec * 1000);//秒数
     send_pmtk_packet(sendPack);
     //////////////////////////l,r,v,g,s,v,r,t,0,0,0,0,0,0,0,0,0,z,0
-    send_pmtk_packet("PMTK314,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0");
+    send_pmtk_packet("PMTK314,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0");
     send_pmtk_packet("PMTK251,9600");
     auto_detect_baud_rate();
 }
@@ -58,47 +58,48 @@ void gpsClass::readData(void){
     }
 }
 
-char* gpsClass::gpsFetch(void){
-    if (available()) {
-        int preamble = 0;
+bool gpsClass::gpsFetch(void){
+    unsigned long last_time = millis();
+    bool changed = false;
+    do{
+        char c = 0;
+        while (c != '$') {//$が出てくるまでまつ。
+            changed = true;//データ取り込み成功！
+            while (!available()) {}
+            c=read();
+        }
+        int index=0;
         char readData[256];
-        int index = 0;
-        while (!available()) {}//wait for data to come.
-        unsigned long last_time = millis();
-        do{
-            char c=read();
-            if (c == '$') {//'$' is cut at the first loop.
-                preamble ++;
-                index = 0;
-                while (c != '\n') {
-                    while (!available()) {}//wait for data to come.
-                    c = read();
-                    if (c == '\n') {
-                        readData[index] = 0;//end of line
-                    }else{
-                        readData[index] = c;
-                    }
-                    index++;
-                }
+        while (1) {
+            while (!available()){}
+            c = read();
+            if (c != '\n') {//'\n'がでてくるまでよみとる。
+                readData[index] = c;
+            }else{
+                readData[index] = 0;
+                parser(readData);
+                break;
             }
-            delay(1);
-        }while (millis()-last_time < 10);
-        return readData;
-    }
-    return "";
+            index++;
+        }
+    }while (millis()-last_time < 20);//これで、タイムアウト20msで、できる限りデータを取り込んでParseすることができる。
+//    Serial.println(readData);
+    return changed;
 }
 
 bool gpsClass::parser(char *readData){
     int length = strlen(readData);
-    for (int k=0; k<length; k++) {
+/*    for (int k=0; k<length; k++) {
         Serial.print(readData[k]);
-    }
+    }*/
     if (length != 0) {
         int datType = headerParser(readData);//ヘッダで、タイプわけする。
         Serial.print("dat type:");
         Serial.println(datType);
-        RMCParser(readData,rmcD);
-//        Serial.println(rmcD.serialShow());
+        if (datType == NMEA_RMC) {
+            RMCParser(readData,rmcD);
+            Serial.println(rmcD.serialShow());
+        }
         return true;
     }
     return false;

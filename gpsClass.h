@@ -50,7 +50,7 @@ public:
     };
     void serialSetup(void);
     void readData(void);
-    char* gpsFetch(void);
+    bool gpsFetch(void);
     bool parser(char *readData);
     void RMCParser(char *readData,RMCData &rmc);
     char* getLCD(int mode,int line);
