@@ -37,11 +37,15 @@ struct ZDAData : public gpsData{
     int year;
     char month,day,hour,min,sec;
     char *lcdShow(int line);
-    char *serialShow(void);
 };
 
 struct GGAData : public gpsData{
-    
+    char hour,min,sec;
+    float latitude;
+    float longitude;
+    char quality;
+    char satteliteCount;
+    float height;
 };
 
 class gpsClass : public SoftwareSerial{

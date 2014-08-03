@@ -173,6 +173,8 @@ void gpsClass::ZDAParser(char *readData,ZDAData &zda){
         readData += strlen(nowPhrase)+1;
     }while (strlen(nowPhrase) != 0);
 }
+
+
 char* ZDAData::lcdShow(int line){
     char ret[128];
     if (line == 0) {
