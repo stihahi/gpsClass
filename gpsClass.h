@@ -44,8 +44,9 @@ struct GGAData : public gpsData{
     float latitude;
     float longitude;
     char quality;
-    char satteliteCount;
+    char satelliteCount;
     float height;
+    char* serialShow(void);
 };
 
 class gpsClass : public SoftwareSerial{
@@ -56,6 +57,7 @@ class gpsClass : public SoftwareSerial{
     char* readNextData(char *rawData);//次のデータを見つけて、返す。最後のdataPhraseだったら、""を返す.ポインタ位置を変更するよ。
     RMCData rmcD;
     ZDAData zdaD;
+    GGAData ggaD;
 public:
     gpsClass(int a,int b) : SoftwareSerial(a,b){
         reloadSec = 1;//default 1 sec
@@ -65,7 +67,8 @@ public:
     bool gpsFetch(void);
     bool parser(char *readData);
     void RMCParser(char *readData,RMCData &rmc);
-    void ZDAParser(char *readData,ZDAData &rmc);
+    void ZDAParser(char *readData,ZDAData &zda);
+    void GGAParser(char *readData,GGAData &gga);
     char* getLCD(int mode,int line);
 };
 

@@ -1,6 +1,6 @@
 //
 //  gpsClass.cpp
-//  
+//
 //
 //  Created by 岩井聡 on 2014/07/28.
 //
@@ -48,7 +48,7 @@ void gpsClass::serialSetup(void){
     sprintf(sendPack,"PMTK220,%d",reloadSec * 1000);//秒数
     send_pmtk_packet(sendPack);
     //////////////////////////l,r,v,g,s,v,r,t,0,0,0,0,0,0,0,0,0,z,0
-    send_pmtk_packet("PMTK314,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0");
+    send_pmtk_packet("PMTK314,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0");
     send_pmtk_packet("PMTK251,9600");
     auto_detect_baud_rate();
 }
@@ -82,16 +82,18 @@ bool gpsClass::gpsFetch(void){
             }
             index++;
         }
-    }while (millis()-last_time < 20);//これで、タイムアウト20msで、できる限りデータを取り込んでParseすることができる。
-//    Serial.println(readData);
+    }while (millis()-last_time < 100);//これで、タイムアウト20msで、できる限りデータを取り込んでParseすることができる。
+    //    Serial.println(readData);
+    Serial.println(ggaD.serialShow());
     return changed;
 }
 
 bool gpsClass::parser(char *readData){
     int length = strlen(readData);
-/*    for (int k=0; k<length; k++) {
-        Serial.print(readData[k]);
-    }*/
+    Serial.println(readData);
+    /*    for (int k=0; k<length; k++) {
+     Serial.print(readData[k]);
+     }*/
     if (length != 0) {
         int datType = headerParser(readData);//ヘッダで、タイプわけする。
         Serial.print("dat type:");
@@ -102,6 +104,9 @@ bool gpsClass::parser(char *readData){
                 break;
             case NMEA_ZDA:
                 ZDAParser(readData,zdaD);
+                break;
+            case NMEA_GGA:
+                GGAParser(readData,ggaD);
                 break;
             default:
                 break;
@@ -173,7 +178,61 @@ void gpsClass::ZDAParser(char *readData,ZDAData &zda){
         readData += strlen(nowPhrase)+1;
     }while (strlen(nowPhrase) != 0);
 }
-
+void gpsClass::GGAParser(char *readData,GGAData &gga){
+    char *nowPhrase;
+    int index = 0;
+    int dataNum = 0;
+    do{
+        nowPhrase = readNextData(readData);
+        switch (dataNum) {
+            case 0:
+                if (strcmp(nowPhrase,"GPGGA") != 0) {
+                    return;
+                }
+                break;
+            case 1://123519.00	＝　測位時刻（UTC）　12:35:19.00
+                gga.hour = CTOI(nowPhrase[0]) * 10 + CTOI(nowPhrase[1]);
+                gga.min  = CTOI(nowPhrase[2]) * 10 + CTOI(nowPhrase[3]);
+                gga.sec  = CTOI(nowPhrase[4]) * 10 + CTOI(nowPhrase[5]);
+                break;
+            case 2://4807.038247,N	＝　緯度　48度07.038247分（北緯）
+                gga.latitude = atof(nowPhrase)/100;
+                break;
+            case 3:
+                if (nowPhrase[0] == 'S') {gga.latitude = -gga.latitude;}
+                break;
+            case 4://01131.324523,E	＝　経度　11度31.324523分（東経）
+                gga.longitude = atof(nowPhrase)/100;
+                break;
+            case 5:
+                if (nowPhrase[0] == 'W') {gga.longitude = -gga.longitude;}
+                break;
+            case 6://1	＝　GPSのクオリティ； 0 = 受信不能， 1 = 単独測位，2 = DGPS
+                gga.quality = CTOI(nowPhrase[0]);
+                break;
+            case 7://08	＝　受信衛星数
+                gga.satelliteCount = atoi(nowPhrase);
+                break;
+            case 9://545.42, M	＝　平均海水面からのアンテナ高度（m）
+                gga.height = atof(nowPhrase);
+                break;
+            default:
+                break;
+        }
+        dataNum ++;
+        readData += strlen(nowPhrase)+1;
+    }while (strlen(nowPhrase) != 0);
+}
+char* GGAData::serialShow(void){
+    char ret[256];
+    char NS;
+    char WE;
+    char temp1[12],temp2[12],temp3[12];
+    if (latitude >0) {NS = 'N';}else{NS='S';}
+    if (longitude > 0){WE = 'E';}else{WE='W';}
+    sprintf(ret,"%02d:%02d:%02d  %c%s %c%s height:%s satellite:%d",hour,min,sec,NS,dtostrf(latitude,9,4,temp1),WE,dtostrf(longitude,10,4,temp2),dtostrf(height,7,4,temp3),satelliteCount);
+    return ret;
+}
 
 char* ZDAData::lcdShow(int line){
     char ret[128];
@@ -191,8 +250,8 @@ void gpsClass::RMCParser(char *readData,RMCData &rmc){
     int dataNum = 0;
     do{
         nowPhrase = readNextData(readData);
-/*        Serial.print("dataNum:");Serial.print(dataNum);
-        Serial.print("[");Serial.print(nowPhrase);Serial.println("]");*/
+        /*        Serial.print("dataNum:");Serial.print(dataNum);
+         Serial.print("[");Serial.print(nowPhrase);Serial.println("]");*/
         switch (dataNum) {
             case 0:
                 if (strcmp(nowPhrase,"GPRMC") != 0) {
@@ -212,7 +271,7 @@ void gpsClass::RMCParser(char *readData,RMCData &rmc){
                 }
                 break;
             case 3://4916.452653,N	＝　緯度　49度16.452653分（北緯）
-                rmc.latitude = atof(nowPhrase);
+                rmc.latitude = atof(nowPhrase) / 100;
                 break;
             case 4:
                 if (nowPhrase[0] == 'S') {
@@ -220,7 +279,7 @@ void gpsClass::RMCParser(char *readData,RMCData &rmc){
                 }
                 break;
             case 5://12311.123747,W	＝　経度　123度11.123747分（西経）
-                rmc.longitude = atof(nowPhrase);
+                rmc.longitude = atof(nowPhrase) / 100;
                 break;
             case 6:
                 if (nowPhrase[0] == 'W') {
@@ -295,10 +354,10 @@ char* RMCData::lcdShow(int line){
     char temp1[12];
     if (line == 0) {
         if (latitude >0) {NSWE = 'N';}else{NSWE='S';}
-        sprintf(ret,"%c%s",NSWE,dtostrf(latitude/100,8,6,temp1));
+        sprintf(ret,"%c%s",NSWE,dtostrf(latitude,8,6,temp1));
     }else{
         if (longitude > 0){NSWE = 'E';}else{NSWE='W';}
-        sprintf(ret,"%c%s",NSWE,dtostrf(longitude/100,8,5,temp1));
+        sprintf(ret,"%c%s",NSWE,dtostrf(longitude,9,6,temp1));
     }
     return ret;
 }
