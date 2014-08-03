@@ -44,11 +44,11 @@ void gpsClass::auto_detect_baud_rate(void){
 
 void gpsClass::serialSetup(void){
     auto_detect_baud_rate();
-    char sendPack[256];
+    char sendPack[128];
     sprintf(sendPack,"PMTK220,%d",reloadSec * 1000);//秒数
     send_pmtk_packet(sendPack);
     //////////////////////////l,r,v,g,s,v,r,t,0,0,0,0,0,0,0,0,0,z,0
-    send_pmtk_packet("PMTK314,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0");
+    send_pmtk_packet("PMTK314,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0");
     send_pmtk_packet("PMTK251,9600");
     auto_detect_baud_rate();
 }
@@ -96,9 +96,15 @@ bool gpsClass::parser(char *readData){
         int datType = headerParser(readData);//ヘッダで、タイプわけする。
         Serial.print("dat type:");
         Serial.println(datType);
-        if (datType == NMEA_RMC) {
-            RMCParser(readData,rmcD);
-            Serial.println(rmcD.serialShow());
+        switch (datType) {
+            case NMEA_RMC:
+                RMCParser(readData,rmcD);
+                break;
+            case NMEA_ZDA:
+                ZDAParser(readData,zdaD);
+                break;
+            default:
+                break;
         }
         return true;
     }
@@ -125,7 +131,7 @@ int gpsClass::headerParser(char *rawData){
 }
 
 char* gpsClass::readNextData(char *rawData){
-    char retPhrase[20];
+    char retPhrase[32];
     int index = 0;
     while(*rawData != ',' && *rawData != 0){
         retPhrase[index++] = *rawData++;
@@ -134,9 +140,50 @@ char* gpsClass::readNextData(char *rawData){
     return retPhrase;
 }
 
+void gpsClass::ZDAParser(char *readData,ZDAData &zda){
+    char *nowPhrase;
+    int index = 0;
+    int dataNum = 0;
+    do{
+        nowPhrase = readNextData(readData);
+        switch (dataNum) {
+            case 0:
+                if (strcmp(nowPhrase,"GPZDA") != 0) {
+                    return;
+                }
+                break;
+            case 1:
+                zda.hour = CTOI(nowPhrase[0]) * 10 + CTOI(nowPhrase[1]);
+                zda.min  = CTOI(nowPhrase[2]) * 10 + CTOI(nowPhrase[3]);
+                zda.sec  = CTOI(nowPhrase[4]) * 10 + CTOI(nowPhrase[5]);
+                break;
+            case 2:
+                zda.day = atoi(nowPhrase);
+                break;
+            case 3:
+                zda.month = atoi(nowPhrase);
+                break;
+            case 4:
+                zda.year = atoi(nowPhrase);
+                break;
+            default:
+                break;
+        }
+        dataNum ++;
+        readData += strlen(nowPhrase)+1;
+    }while (strlen(nowPhrase) != 0);
+}
+char* ZDAData::lcdShow(int line){
+    char ret[128];
+    if (line == 0) {
+        sprintf(ret,"%d/%02d/%02d",year,month,day);
+    }else{
+        sprintf(ret,"%2d:%02d:%02d",hour,min,sec);
+    }
+    return ret;
+}
 
 void gpsClass::RMCParser(char *readData,RMCData &rmc){
-    char *c = readData;
     char *nowPhrase;
     int index = 0;
     int dataNum = 0;
@@ -217,7 +264,9 @@ char* gpsClass::getLCD(int mode,int line){
         case NMEA_RMC:
             return rmcD.lcdShow(line);
             break;
-            
+        case NMEA_ZDA:
+            return zdaD.lcdShow(line);
+            break;
         default:
             return "";
             break;
@@ -239,7 +288,7 @@ char* RMCData::lcdShow(int line){
     if (!status) {
         return "00000000";
     }
-    char ret[256];
+    char ret[128];
     char NSWE;
     char temp1[12];
     if (line == 0) {
