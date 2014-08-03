@@ -33,11 +33,16 @@ struct RMCData : public gpsData{
     RMCData(){status = false;};
 };
 
+struct GGAData : public gpsData{
+    
+};
+
 class gpsClass : public SoftwareSerial{
     int reloadSec;
     void auto_detect_baud_rate(void);
     void send_pmtk_packet(char *p);
-    int headerParser(char *readData);//private class that determins the type of data.
+    int headerParser(char *rawData);//データの種類だけparseする。rawDataのポインタ位置変更はしない。
+    char* readNextData(char *rawData);//次のデータを見つけて、返す。最後のdataPhraseだったら、""を返す.ポインタ位置を変更するよ。
     RMCData rmcD;
 public:
     gpsClass(int a,int b) : SoftwareSerial(a,b){
@@ -45,7 +50,7 @@ public:
     };
     void serialSetup(void);
     void readData(void);
-    char* gpsFetch(void);
+    bool gpsFetch(void);
     bool parser(char *readData);
     void RMCParser(char *readData,RMCData &rmc);
     char* getLCD(int mode,int line);
