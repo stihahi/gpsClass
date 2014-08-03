@@ -84,16 +84,12 @@ bool gpsClass::gpsFetch(void){
         }
     }while (millis()-last_time < 100);//これで、タイムアウト20msで、できる限りデータを取り込んでParseすることができる。
     //    Serial.println(readData);
-    Serial.println(ggaD.serialShow());
     return changed;
 }
 
 bool gpsClass::parser(char *readData){
     int length = strlen(readData);
-    Serial.println(readData);
-    /*    for (int k=0; k<length; k++) {
-     Serial.print(readData[k]);
-     }*/
+//    Serial.println(readData);
     if (length != 0) {
         int datType = headerParser(readData);//ヘッダで、タイプわけする。
         Serial.print("dat type:");
@@ -213,7 +209,7 @@ void gpsClass::GGAParser(char *readData,GGAData &gga){
             case 7://08	＝　受信衛星数
                 gga.satelliteCount = atoi(nowPhrase);
                 break;
-            case 9://545.42, M	＝　平均海水面からのアンテナ高度（m）
+            case 11://46.93, M	＝　WGS-84楕円体から平均海水面の高度差（m）
                 gga.height = atof(nowPhrase);
                 break;
             default:
@@ -230,7 +226,7 @@ char* GGAData::serialShow(void){
     char temp1[12],temp2[12],temp3[12];
     if (latitude >0) {NS = 'N';}else{NS='S';}
     if (longitude > 0){WE = 'E';}else{WE='W';}
-    sprintf(ret,"%02d:%02d:%02d  %c%s %c%s height:%s satellite:%d",hour,min,sec,NS,dtostrf(latitude,9,4,temp1),WE,dtostrf(longitude,10,4,temp2),dtostrf(height,7,4,temp3),satelliteCount);
+    sprintf(ret,"%02d:%02d:%02d  %c%s %c%s height:%s satellite:%d",hour,min,sec,NS,dtostrf(latitude,9,6,temp1),WE,dtostrf(longitude,10,6,temp2),dtostrf(height,8,2,temp3),satelliteCount);
     return ret;
 }
 
@@ -328,6 +324,9 @@ char* gpsClass::getLCD(int mode,int line){
         case NMEA_ZDA:
             return zdaD.lcdShow(line);
             break;
+        case NMEA_GGA:
+            return ggaD.serialShow();
+            break;
         default:
             return "";
             break;
@@ -335,7 +334,7 @@ char* gpsClass::getLCD(int mode,int line){
 }
 
 char* RMCData::serialShow(void){
-    char ret[256];
+    char ret[128];
     char NS;
     char WE;
     char temp1[12],temp2[12],temp3[12];
