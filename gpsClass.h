@@ -10,51 +10,19 @@
 #define ____gpsClass__
 
 #include <SoftwareSerial.h>
-#define CTOI(A) (A-'0')
+#include "rmcData.h"
+#include "ggaData.h"
+#include "zdaData.h"
+#include "gpsData.h"
 
-enum NMEA0183{NMEA_OTHER,NMEA_RMC,NMEA_ZDA,NMEA_GGA};
 
-class gpsData{
-public:
-    char* lcdShow(int line);//データを整形して返すメソッド。画面表示用。
-    char* serialShow(void);
-};
 
-struct RMCData : public gpsData{
-    char hour,min,sec;
-    char day,month,year;
-    bool status;
-    float latitude;
-    float longitude;
-    float knot;
-    int heading;
-    char* lcdShow(int line);//データを整形して返すメソッド。画面表示用。
-    char* serialShow(void);//データを整形してシリアルポートに返す。
-    RMCData(){status = false;};
-};
-
-struct ZDAData : public gpsData{
-    int year;
-    char month,day,hour,min,sec;
-    char *lcdShow(int line);
-};
-
-struct GGAData : public gpsData{
-    char hour,min,sec;
-    float latitude;
-    float longitude;
-    char quality;
-    char satelliteCount;
-    float height;
-    char* serialShow(void);
-};
 
 class gpsClass : public SoftwareSerial{
     int reloadSec;
     void auto_detect_baud_rate(void);
     void send_pmtk_packet(char *p);
     int headerParser(char *rawData);//データの種類だけparseする。rawDataのポインタ位置変更はしない。
-    char* readNextData(char *rawData);//次のデータを見つけて、返す。最後のdataPhraseだったら、""を返す.ポインタ位置を変更するよ。
     RMCData rmcD;
     ZDAData zdaD;
     GGAData ggaD;
