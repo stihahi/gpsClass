@@ -18,7 +18,7 @@
 
 
 
-class gpsClass : public SoftwareSerial{
+class gpsClass{
     int reloadSec;
     void auto_detect_baud_rate(void);
     void send_pmtk_packet(char *p);
@@ -27,8 +27,8 @@ class gpsClass : public SoftwareSerial{
     ZDAData zdaD;
     GGAData ggaD;
 public:
-    gpsClass(int a,int b) : SoftwareSerial(a,b){
-        reloadSec = 1;//default 1 sec
+    gpsClass(int a,int b){
+        reloadSec = 3;//default 1 sec
     };
     void serialSetup(void);
     void readData(void);

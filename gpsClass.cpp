@@ -19,11 +19,11 @@ void gpsClass::auto_detect_baud_rate(void){
     for(int i=0; i<(sizeof(bauds)/sizeof(bauds[0]));i++){
         int p = 0;
         int r = 0;
-        begin(bauds[i]);
-        flush();
+        Serial3.begin(bauds[i]);
+        Serial3.flush();
         do{
-            if(available()){
-                if(isprint(read())){
+            if(Serial3.available()){
+                if(isprint(Serial3.read())){
                     p++;
                 }
                 r++;
@@ -43,18 +43,21 @@ void gpsClass::auto_detect_baud_rate(void){
 }
 
 void gpsClass::serialSetup(void){
-    auto_detect_baud_rate();
+//    auto_detect_baud_rate();
+    Serial3.begin(9600);
+    Serial3.flush();
+    delay(1000);
     char sendPack[128];
     sprintf(sendPack,"PMTK220,%d",reloadSec * 1000);//秒数
     send_pmtk_packet(sendPack);
     //////////////////////////l,r,v,g,s,v,r,t,0,0,0,0,0,0,0,0,0,z,0
-    send_pmtk_packet("PMTK314,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0");
+    send_pmtk_packet("PMTK314,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0");
     send_pmtk_packet("PMTK251,9600");
-    auto_detect_baud_rate();
+//    auto_detect_baud_rate();
 }
 void gpsClass::readData(void){
-    if(available()){
-        Serial.print((char)read());
+    if(Serial3.available()){
+        Serial.print((char)Serial3.read());
     }
 }
 
@@ -65,14 +68,14 @@ bool gpsClass::gpsFetch(void){
         char c = 0;
         while (c != '$') {//$が出てくるまでまつ。
             changed = true;//データ取り込み成功！
-            while (!available()) {}
-            c=read();
+            while (!Serial3.available()) {}
+            c=Serial3.read();
         }
         int index=0;
         char readData[256];
         while (1) {
-            while (!available()){}
-            c = read();
+            while (!Serial3.available()){}
+            c = Serial3.read();
             if (c != '\n') {//'\n'がでてくるまでよみとる。
                 readData[index] = c;
             }else{
@@ -89,7 +92,7 @@ bool gpsClass::gpsFetch(void){
 
 bool gpsClass::parser(char *readData){
     int length = strlen(readData);
-//    Serial.println(readData);
+    Serial.println(readData);
     if (length != 0) {
         int datType = headerParser(readData);//ヘッダで、タイプわけする。
         Serial.print("dat type:");
@@ -140,20 +143,20 @@ int gpsClass::headerParser(char *rawData){
 void gpsClass::send_pmtk_packet(char *p)
 {
     uint8_t checksum = 0;
-    print('$');
+    Serial3.print('$');
     do {
         char c = *p++;
         if(c){
             checksum ^= (uint8_t)c;
-            print(c);
+            Serial3.print(c);
         }
         else{
             break;
         }
     }
     while(1);
-    print('*');
-    println(checksum,HEX);
+    Serial3.print('*');
+    Serial3.println(checksum,HEX);
 }
 
 char* gpsClass::getLCD(int mode,int line){
